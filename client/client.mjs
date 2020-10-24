@@ -11,7 +11,7 @@ const classOptions = [];
 if (!native.hasAnimDictLoaded('mp_suicide')) {
 	native.requestAnimDict('mp_suicide');
 }
-	
+
 class ClassOption {
 	constructor(text, x, y, width, height, event, classType, textDict, textName) {
 		this.x = x;
@@ -31,9 +31,9 @@ class ClassOption {
 			// Hover sound.
 			if (!this.playedHoverSound) {
 				this.playedHoverSound = true;
-				native.playSoundFrontend(-1,  'NAV_UP_DOWN', 'HUD_FREEMODE_SOUNDSET', true);
+				native.playSoundFrontend(-1, 'NAV_UP_DOWN', 'HUD_FREEMODE_SOUNDSET', true);
 			}
-			
+
 			native.drawRect(this.x, this.y, this.width, this.height, 0, 180, 0, 50);
 			drawText(this.text, this.x, this.y + (this.height / 4), 0.5, 255, 255, 255, 150);
 			drawSprite(this.textDict, this.textName, this.x, this.y, 0.05, 0.09, 255);
@@ -44,9 +44,10 @@ class ClassOption {
 
 			// Close menu / emit function.
 			isMenuOpen = false;
-			native.playSoundFrontend(-1,  'SELECT', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true);
+			alt.showCursor(false);
+			native.playSoundFrontend(-1, 'SELECT', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true);
 			alt.emit(this.event, this.classType);
-			native.transitionFromBlurred(500);
+			native.triggerScreenblurFadeOut(500);
 			return;
 		}
 
@@ -62,19 +63,19 @@ class ClassOption {
 			x: native.getControlNormal(0, 239),
 			y: native.getControlNormal(0, 240)
 		}
-	
+
 		if (cursorPos.x < xPos - (width / 2))
 			return false;
-	
+
 		if (cursorPos.x > xPos + (width / 2))
 			return false;
-	
+
 		if (cursorPos.y < yPos - (height / 2))
 			return false;
-	
+
 		if (cursorPos.y > yPos + (height / 2))
 			return false;
-	
+
 		return true;
 	}
 }
@@ -91,22 +92,24 @@ alt.on('keydown', (key) => {
 		isMenuOpen = !isMenuOpen;
 
 		if (!isMenuOpen) {
+			alt.showCursor(false);
 			native.displayRadar(true);
-			native.transitionFromBlurred(500);
+			native.triggerScreenblurFadeOut(500);
 		} else {
-			native.transitionToBlurred(500);
+			alt.showCursor(true);
+			native.triggerScreenblurFadeIn(500);
 		}
 	}
 });
 
 // Calls constantly.
-alt.on('update', () => {
+alt.everyTick(() => {
 	native.restorePlayerStamina(alt.Player.local.scriptID, 100);
 
 	// If the menu is not open, enable the controls.
 	if (!isMenuOpen) {
 		native.enableAllControlActions(0);
-		native.transitionFromBlurred(500);
+		native.triggerScreenblurFadeOut(500);
 		native.showHudComponentThisFrame(14);
 
 		drawText('X to Select Class'.toUpperCase(), 0.90, 0.1, 0.5, 255, 255, 255, 175);
@@ -115,14 +118,13 @@ alt.on('update', () => {
 		drawText(`Deaths: ${totalDeaths}`.toUpperCase(), 0.90, 0.25, 0.5, 255, 255, 255, 175);
 	} else {
 		// Draw the menu.
-		native.showCursorThisFrame();
 		native.hideHudAndRadarThisFrame();
 		native.disableControlAction(0, 1, true);
 		native.disableControlAction(0, 2, true);
 		native.disableControlAction(0, 142, true);
 		native.disableControlAction(0, 106, true);
 
-		for(var i = 0; i < classOptions.length; i++) {
+		for (var i = 0; i < classOptions.length; i++) {
 			classOptions[i].render();
 		}
 	}
@@ -133,9 +135,10 @@ alt.on('selectClass', (type) => {
 	alt.emitServer('selectClass', type);
 });
 
-alt.onServer('chooseClass', () => { 
+alt.onServer('chooseClass', () => {
+	alt.showCursor(true);
 	isMenuOpen = true;
-	native.transitionToBlurred(500);
+	native.triggerScreenblurFadeIn(500);
 });
 
 alt.onServer('addKill', () => {
@@ -158,7 +161,7 @@ alt.onServer('addDeath', () => {
  * @param a 
  */
 function drawText(msg, x, y, scale, r, g, b, a) {
-	native.setUiLayer(50);
+	native.setScriptGfxDrawOrder(50);
 	native.beginTextCommandDisplayText('STRING');
 	native.addTextComponentSubstringPlayerName(msg);
 	native.setTextFont(4);
@@ -185,31 +188,31 @@ function drawSprite(dict, name, x, y, width, height, alpha) {
 		native.requestStreamedTextureDict(dict, false);
 		return;
 	}
-		
-	native.setUiLayer(99);
+
+	native.setScriptGfxDrawOrder(99);
 	native.drawSprite(dict, name, x, y, width, height, 0, 255, 255, 255, alpha);
 }
 
 alt.onServer('suicidePlayer', (player) => {
 	native.giveWeaponToPed(player.scriptID, 453432689, 1, false, true);
-  
+
 	alt.setTimeout(() => {
 		native.taskPlayAnim(player.scriptID, 'mp_suicide', 'pistol', 8.0, 1.0, -1, 2, 0, 0, 0, 0);
 	}, 500);
-  
+
 	alt.setTimeout(() => {
 		native.setPedShootsAtCoord(player.scriptID, 0, 0, 0, true);
 
 		if (player.scriptID !== alt.Player.local.scriptID)
 			return;
 
-		native.startScreenEffect('DeathFailNeutralIn', -1, true);
+		native.animpostfxPlay('DeathFailNeutralIn', -1, true);
 		alt.emitServer('killSelf');
 	}, 1250);
 });
 
 alt.onServer('showDeathEffects', () => {
-	native.startScreenEffect('DeathFailNeutralIn', -1, true);
+	native.animpostfxPlay('DeathFailNeutralIn', 1000, true);
 });
 
 alt.onServer('forceRagdoll', () => {
@@ -223,5 +226,5 @@ alt.onServer('clearRagdoll', () => {
 });
 
 alt.onServer('clearDeathEffects', () => {
-	native.stopAllScreenEffects();
+	native.animpostfxStop("DeathFailNeutralIn");
 });
